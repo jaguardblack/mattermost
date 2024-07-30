@@ -193,7 +193,7 @@ declare namespace Cypress {
          *
          * @returns {UserProfile} `out.sysadmin` as `UserProfile` object
          */
-        apiCreateCustomAdmin(options: {loginAfter: boolean; hideAdminTrialModal?: boolean}): Chainable<{sysadmin: UserProfile}>;
+        apiCreateCustomAdmin(options: {loginAfter: boolean; hideAdminTrialModal?: boolean} = {loginAfter: false, hideAdminTrialModal: true}): Chainable<{sysadmin: UserProfile}>;
 
         /**
          * Create a new user with an options to set name prefix and be able to bypass tutorial steps.
@@ -375,7 +375,6 @@ declare namespace Cypress {
          *   });
          */
         apiGetTotalUsers(): Chainable<number>;
-
 
         // TODO: define a better return type
         /**
