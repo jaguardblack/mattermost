@@ -821,7 +821,7 @@ export default class PostList extends React.PureComponent<Props, State> {
                                             style={{...virtListStyles, ...dynamicListStyle}}
                                             innerListStyle={postListStyle}
                                             initRangeToRender={this.initRangeToRender}
-                                            loaderId={CREATE_COMMENT}
+                                            loaderId={PostListRowListIds.OLDER_MESSAGES_LOADER}
                                             visibleId={CREATE_COMMENT}
                                             correctScrollToBottom={this.props.atLatestPost}
                                             onItemsRendered={this.onItemsRendered}
