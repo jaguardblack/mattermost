@@ -41,6 +41,14 @@ var PostListCmd = &cobra.Command{
 	RunE: withClient(postListCmdF),
 }
 
+var PostCreateDMCmd = &cobra.Command{
+	Use:     "dm",
+	Short:   "Send a direct message to a user",
+	Example: ` post create dm johndoe@gmail.com 'Hey John! How have you been?'`,
+	Args:    cobra.ExactArgs(2),
+	RunE:    withClient(postCreateDMCmdF),
+}
+
 const (
 	ISO8601Layout  = "2006-01-02T15:04:05-07:00"
 	PostTimeFormat = "2006-01-02 15:04:05-07:00"
@@ -54,6 +62,8 @@ func init() {
 	PostListCmd.Flags().BoolP("show-ids", "i", false, "Show posts ids")
 	PostListCmd.Flags().BoolP("follow", "f", false, "Output appended data as new messages are posted to the channel")
 	PostListCmd.Flags().StringP("since", "s", "", "List messages posted after a certain time (ISO 8601)")
+
+	PostCreateCmd.AddCommand(PostCreateDMCmd)
 
 	PostCmd.AddCommand(
 		PostCreateCmd,
@@ -100,6 +110,46 @@ func postCreateCmdF(c client.Client, cmd *cobra.Command, args []string) error {
 	if _, err := c.DoAPIPost(context.TODO(), url, data); err != nil {
 		return fmt.Errorf("could not create post: %s", err.Error())
 	}
+	return nil
+}
+
+func postCreateDMCmdF(c client.Client, cmd *cobra.Command, args []string) error {
+	ctx := context.TODO()
+	message := args[1]
+	if message == "" {
+		return errors.New("message cannot be empty")
+	}
+
+	me,_, err := c.GetMe(ctx, "")
+	if err!=nil{
+		return fmt.Errorf("could not get current user: %s", err.Error())
+	}
+	
+	otherUser, err := getUserFromArg(c, args[0])
+	if err != nil {
+		return fmt.Errorf("could not find user: %s", err.Error())
+	}
+
+	directChannel,_, err := c.CreateDirectChannel(ctx, otherUser.Id, me.Id)
+	if err != nil {
+		return fmt.Errorf("could not create direct channel:  %w", err)
+	}
+
+	post := &model.Post{
+		Message:   message,
+		ChannelId: directChannel.Id,
+		UserId:    otherUser.Id,
+	}
+
+	data, err := post.ToJSON()
+	if err != nil {
+		return fmt.Errorf("could not decode post: %w", err)
+	}
+
+	if _, err := c.DoAPIPost(ctx, "/posts"+"?set_online=false", data); err != nil {
+		return fmt.Errorf("could not send message: %s", err.Error())
+	}
+
 	return nil
 }
 
