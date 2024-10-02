@@ -9,9 +9,9 @@ export interface User {
 
 export function getAdminAccount() {
     return {
-        username: Cypress.env('adminUsername'),
-        password: Cypress.env('adminPassword'),
-        email: Cypress.env('adminEmail'),
+        username: Cypress.env('adminUsername') as string,
+        password: Cypress.env('adminPassword') as string,
+        email: Cypress.env('adminEmail') as string,
     };
 }
 
