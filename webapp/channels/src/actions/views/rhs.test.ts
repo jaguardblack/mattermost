@@ -219,7 +219,11 @@ describe('rhs view actions', () => {
 
     describe('performSearch', () => {
         // timezone offset in seconds
-        const timeZoneOffset = getBrowserUtcOffset() * 60;
+        let timeZoneOffset = getBrowserUtcOffset() * 60;
+        // Avoid problems with negative cero
+        if (timeZoneOffset === 0) {
+            timeZoneOffset = 0;
+        }
 
         test('it dispatches searchPosts correctly', () => {
             const terms = '@here test search';
