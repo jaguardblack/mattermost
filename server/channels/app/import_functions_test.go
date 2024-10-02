@@ -2556,6 +2556,44 @@ func TestImportimportMultiplePostLines(t *testing.T) {
 	AssertAllPostsCount(t, th.App, initialPostCountForTeam2, 1, team2.Id)
 	AssertAllPostsCount(t, th.App, initialPostCount, 15, team.Id)
 
+	t.Run("Importing a post with a reply both pinned", func(t *testing.T) {
+		// Create a thread.
+		importCreate := time.Now().Add(-1 * time.Minute).UnixMilli()
+		replyCreate := time.Now().Add(-30 * time.Second).UnixMilli()
+		data = imports.LineImportWorkerData{
+			LineImportData: imports.LineImportData{
+				Post: &imports.PostImportData{
+					Team:     &teamName,
+					Channel:  &channelName,
+					User:     &user.Username,
+					Message:  model.NewPointer("Thread Message"),
+					CreateAt: model.NewPointer(importCreate),
+					IsPinned: model.NewPointer(true),
+					Replies: &[]imports.ReplyImportData{{
+						User:     &user.Username,
+						Message:  model.NewPointer("Reply"),
+						CreateAt: model.NewPointer(replyCreate),
+						IsPinned: model.NewPointer(true),
+					}},
+				},
+			},
+			LineNumber: 1,
+		}
+
+		_, err = th.App.importMultiplePostLines(th.Context, []imports.LineImportWorkerData{data}, false, true)
+		require.Nil(t, err)
+
+		resultPosts, nErr = th.App.Srv().Store().Post().GetPostsCreatedAt(channel.Id, importCreate)
+		require.NoError(t, nErr)
+		require.Equal(t, 1, len(resultPosts))
+		require.True(t, resultPosts[0].IsPinned)
+
+		resultPosts, nErr = th.App.Srv().Store().Post().GetPostsCreatedAt(channel.Id, replyCreate)
+		require.NoError(t, nErr)
+		require.Equal(t, 1, len(resultPosts))
+		require.True(t, resultPosts[0].IsPinned)
+	})
+
 	t.Run("Importing a post with a thread", func(t *testing.T) {
 		// Create a thread.
 		importCreate := time.Now().Add(-1 * time.Minute).UnixMilli()
@@ -2714,6 +2752,76 @@ func TestImportimportMultiplePostLines(t *testing.T) {
 		require.NoError(t, err)
 
 		assert.ElementsMatch(t, []string{user.Id}, followers)
+	})
+
+	t.Run("Importing a post that someone flagged", func(t *testing.T) {
+		// Create a thread.
+		importCreate := time.Now().Add(-1 * time.Minute).UnixMilli()
+		data = imports.LineImportWorkerData{
+			LineImportData: imports.LineImportData{
+				Post: &imports.PostImportData{
+					Team:      &teamName,
+					Channel:   &channelName,
+					User:      &user.Username,
+					Message:   model.NewPointer("Flagged Message"),
+					CreateAt:  model.NewPointer(importCreate),
+					FlaggedBy: &[]string{user.Username},
+				},
+			},
+			LineNumber: 1,
+		}
+
+		errLine, err = th.App.importMultiplePostLines(th.Context, []imports.LineImportWorkerData{data}, false, true)
+		require.Nil(t, err)
+		require.Equal(t, 0, errLine)
+
+		resultPosts, nErr = th.App.Srv().Store().Post().GetPostsCreatedAt(channel.Id, importCreate)
+		require.NoError(t, nErr)
+		require.Equal(t, 1, len(resultPosts))
+
+		pref, err := th.App.ch.srv.Store().Preference().GetCategoryAndName(model.PreferenceCategoryFlaggedPost, resultPosts[0].Id)
+		require.NoError(t, err)
+
+		require.Len(t, pref, 1)
+		assert.Equal(t, user.Id, pref[0].UserId)
+	})
+
+	t.Run("Importing a post that someone flagged its replies", func(t *testing.T) {
+		// Create a thread.
+		importCreate := time.Now().Add(-1 * time.Minute).UnixMilli()
+		replyCreate := time.Now().Add(-30 * time.Second).UnixMilli()
+		data = imports.LineImportWorkerData{
+			LineImportData: imports.LineImportData{
+				Post: &imports.PostImportData{
+					Team:     &teamName,
+					Channel:  &channelName,
+					User:     &user.Username,
+					Message:  model.NewPointer("Flagged Message"),
+					CreateAt: model.NewPointer(importCreate),
+					Replies: &[]imports.ReplyImportData{{
+						User:      &user.Username,
+						Message:   model.NewPointer("Reply"),
+						CreateAt:  model.NewPointer(replyCreate),
+						FlaggedBy: &[]string{user2.Username},
+					}},
+				},
+			},
+			LineNumber: 1,
+		}
+
+		errLine, err = th.App.importMultiplePostLines(th.Context, []imports.LineImportWorkerData{data}, false, true)
+		require.Nil(t, err)
+		require.Equal(t, 0, errLine)
+
+		resultPosts, nErr = th.App.Srv().Store().Post().GetPostsCreatedAt(channel.Id, replyCreate)
+		require.NoError(t, nErr)
+		require.Equal(t, 1, len(resultPosts))
+
+		pref, err := th.App.ch.srv.Store().Preference().GetCategoryAndName(model.PreferenceCategoryFlaggedPost, resultPosts[0].Id)
+		require.NoError(t, err)
+
+		require.Len(t, pref, 1)
+		assert.Equal(t, user2.Id, pref[0].UserId)
 	})
 }
 
