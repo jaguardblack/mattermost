@@ -1829,17 +1829,26 @@ func (s *Server) getChannel(c request.CTX, channelID string) (*model.Channel, *m
 }
 
 func (a *App) GetChannels(c request.CTX, channelIDs []string) ([]*model.Channel, *model.AppError) {
-	channels, err := a.Srv().Store().Channel().GetMany(channelIDs, true)
-	if err != nil {
-		var nfErr *store.ErrNotFound
-		switch {
-		case errors.As(err, &nfErr):
-			return nil, model.NewAppError("GetChannel", "app.channel.get.existing.app_error", nil, "", http.StatusNotFound).Wrap(err)
-		default:
-			return nil, model.NewAppError("GetChannel", "app.channel.get.find.app_error", nil, "", http.StatusInternalServerError).Wrap(err)
-		}
-	}
-	return channels, nil
+    channels, err := a.Srv().Store().Channel().GetMany(channelIDs, true)
+    if err != nil {
+        var nfErr *store.ErrNotFound
+        switch {
+        case errors.As(err, &nfErr):
+            return nil, model.NewAppError("GetChannel", "app.channel.get.existing.app_error", nil, "", http.StatusNotFound).Wrap(err)
+        default:
+            return nil, model.NewAppError("GetChannel", "app.channel.get.find.app_error", nil, "", http.StatusInternalServerError).Wrap(err)
+        }
+    }
+
+    // Filter out archived channels
+    activeChannels := []*model.Channel{}
+    for _, channel := range channels {
+        if channel.DeleteAt == 0 {
+            activeChannels = append(activeChannels, channel)
+        }
+    }
+
+    return activeChannels, nil
 }
 
 func (a *App) GetChannelsMemberCount(c request.CTX, channelIDs []string) (map[string]int64, *model.AppError) {
